@@ -33,6 +33,15 @@ app.use('/api', apiLimiter);
 // Static uploads (student photos, logo, signature)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Tutorium API is running',
+    health: '/health',
+    docs: '/api-docs',
+  });
+});
+
 app.get('/health', (req, res) => res.json({ success: true, status: 'ok', time: new Date().toISOString() }));
 
 // API docs
