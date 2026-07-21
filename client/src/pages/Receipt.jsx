@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FiPrinter, FiDownload } from 'react-icons/fi';
 import Layout from '../components/Layout';
-import api from '../services/api';
+import api, { apiBaseURL } from '../services/api';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -20,7 +20,7 @@ export default function Receipt() {
   }, [id]);
 
   const downloadPdf = () => {
-    const base = import.meta.env.VITE_API_URL;
+    const base = apiBaseURL.replace(/\/api$/, '');
     const token = localStorage.getItem('tutorium_token');
     fetch(`${base}/receipt/pdf/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.blob())

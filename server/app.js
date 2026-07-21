@@ -48,14 +48,14 @@ app.get('/health', (req, res) => res.json({ success: true, status: 'ok', time: n
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/students', studentRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/model-tests', modelTestRoutes);
-app.use('/api/receipt', receiptRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/settings', settingRoutes);
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/students', '/students'], studentRoutes);
+app.use(['/api/payments', '/payments'], paymentRoutes);
+app.use(['/api/model-tests', '/model-tests'], modelTestRoutes);
+app.use(['/api/receipt', '/receipt'], receiptRoutes);
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes);
+app.use(['/api/reports', '/reports'], reportRoutes);
+app.use(['/api/settings', '/settings'], settingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

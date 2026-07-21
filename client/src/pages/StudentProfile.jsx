@@ -85,7 +85,7 @@ export default function StudentProfile() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         <div className="card lg:col-span-1 flex flex-col items-center text-center">
           {student.photo ? (
-            <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${student.photo}`} alt={student.name} className="w-24 h-24 rounded-full object-cover mb-3" />
+            <img src={`${apiBaseURL.replace(/\/api$/, '')}${student.photo}`} alt={student.name} className="w-24 h-24 rounded-full object-cover mb-3" />
           ) : (
             <div className="w-24 h-24 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-2xl font-bold mb-3">
               {student.name?.[0]}

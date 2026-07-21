@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { FiDownload } from 'react-icons/fi';
 import Layout from '../components/Layout';
-import api from '../services/api';
+import api, { apiBaseURL } from '../services/api';
 
 const REPORTS = [
   { key: 'monthly', label: 'Monthly Collection Report', path: '/reports/monthly' },
@@ -22,7 +22,7 @@ export default function Reports() {
     try {
       const token = localStorage.getItem('tutorium_token');
       const params = new URLSearchParams({ ...(report.params || {}), format });
-      const base = import.meta.env.VITE_API_URL;
+      const base = apiBaseURL.replace(/\/api$/, '');
       const res = await fetch(`${base}${report.path}?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
