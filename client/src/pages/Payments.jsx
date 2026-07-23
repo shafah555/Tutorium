@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Pagination from '../components/Pagination';
@@ -10,6 +11,7 @@ import api from '../services/api';
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function Payments() {
+  const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
   const [status, setStatus] = useState('');
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
@@ -33,7 +35,6 @@ export default function Payments() {
     <Layout>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
         <h1 className="text-xl font-bold text-gray-800">Payments</h1>
-        {/* Receiving a payment now happens right here in a modal — no separate page/navigation needed. */}
         <button className="btn-primary flex items-center gap-2 w-fit" onClick={() => setPaymentOpen(true)}>
           <FiPlus /> Receive Payment
         </button>
@@ -90,7 +91,11 @@ export default function Payments() {
       <PaymentModal
         open={paymentOpen}
         onClose={() => setPaymentOpen(false)}
-        onSuccess={() => fetchPayments(pagination.page)}
+        onSuccess={(receipt) => {
+          fetchPayments(pagination.page);
+          // Take the teacher straight to the printable/downloadable PDF receipt.
+          if (receipt?.id) navigate(`/receipt/${receipt.id}`);
+        }}
       />
     </Layout>
   );

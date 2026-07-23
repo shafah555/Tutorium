@@ -31,7 +31,7 @@ export default function Register() {
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-2xl mx-auto mb-3">T</div>
           <h1 className="text-2xl font-bold text-gray-800">Create Your Tutorium Account</h1>
-          <p className="text-gray-500 text-sm mt-1">This is a single-tutor system. Only one account can be created.</p>
+          <p className="text-gray-500 text-sm mt-1">Each tutor gets their own private, isolated account.</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="card space-y-4">

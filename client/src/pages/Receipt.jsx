@@ -56,8 +56,18 @@ export default function Receipt() {
 
       <div className="card max-w-xl mx-auto border-2 border-primary-100">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-lg bg-primary-600 text-white flex items-center justify-center font-bold text-xl mx-auto mb-2">T</div>
-          <h2 className="text-lg font-bold text-primary-700">Tutorium</h2>
+          {receipt.settings?.logo ? (
+            <img
+              src={`${apiBaseURL.replace(/\/api$/, '')}${receipt.settings.logo}`}
+              alt="Institute logo"
+              className="w-12 h-12 object-contain rounded-lg mx-auto mb-2 bg-white"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-lg bg-primary-600 text-white flex items-center justify-center font-bold text-xl mx-auto mb-2">
+              {(receipt.settings?.instituteName || 'Tutorium').charAt(0)}
+            </div>
+          )}
+          <h2 className="text-lg font-bold text-primary-700">{receipt.settings?.instituteName || 'Tutorium'}</h2>
           <p className="text-xs text-gray-400">Payment Receipt</p>
         </div>
 
@@ -95,8 +105,17 @@ export default function Receipt() {
 
         <div className="flex justify-between items-end">
           <div>
+            {receipt.settings?.signature && (
+              <img
+                src={`${apiBaseURL.replace(/\/api$/, '')}${receipt.settings.signature}`}
+                alt="Teacher signature"
+                className="h-10 object-contain mb-1"
+              />
+            )}
             <div className="w-32 border-b border-gray-400 mb-1" />
-            <p className="text-xs text-gray-500">Teacher Signature</p>
+            <p className="text-xs text-gray-500">
+              {receipt.settings?.tutorName ? `${receipt.settings.tutorName} — ` : ''}Teacher Signature
+            </p>
           </div>
         </div>
       </div>
