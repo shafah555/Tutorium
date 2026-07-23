@@ -3,9 +3,10 @@ import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler,
 } from 'chart.js';
-import { FiUsers, FiUserCheck, FiUserX, FiDollarSign, FiAlertCircle, FiClipboard } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiUserX, FiDollarSign, FiAlertCircle, FiClipboard, FiPlus } from 'react-icons/fi';
 import Layout from '../components/Layout';
 import StatCard from '../components/StatCard';
+import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -16,19 +17,23 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
-  useEffect(() => {
+  const loadDashboard = () => {
+    setLoading(true);
     api.get('/dashboard')
       .then((res) => setData(res.data.data))
       .catch(() => toast.error('Failed to load dashboard'))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadDashboard(); }, []);
 
   if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-4 border-primary-600 border-t-transparent rounded-full" />
+          <div className="orbit-spinner" />
         </div>
       </Layout>
     );
@@ -41,8 +46,9 @@ export default function Dashboard() {
       {
         label: 'Collected',
         data: chart.map((c) => c.collected),
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,0.1)',
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.12)',
+        pointBackgroundColor: '#ea580c',
         fill: true,
         tension: 0.35,
       },
@@ -51,7 +57,12 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <h1 className="text-xl font-bold text-gray-800 mb-5">Dashboard</h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+        <button className="btn-primary flex items-center gap-2 w-fit" onClick={() => setPaymentOpen(true)}>
+          <FiPlus /> Receive Payment
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Students" value={data?.totalStudents ?? 0} icon={FiUsers} accent="primary" />
@@ -81,6 +92,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      <PaymentModal open={paymentOpen} onClose={() => setPaymentOpen(false)} onSuccess={loadDashboard} />
     </Layout>
   );
 }

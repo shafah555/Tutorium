@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FiEdit2, FiTrash2, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiCheckCircle, FiDollarSign } from 'react-icons/fi';
 import Layout from '../components/Layout';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import api from '../services/api';
+import PaymentModal from '../components/PaymentModal';
+import api, { apiBaseURL } from '../services/api';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -18,6 +19,7 @@ export default function StudentProfile() {
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completionDate, setCompletionDate] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -51,11 +53,16 @@ export default function StudentProfile() {
     }
   };
 
+  const handlePaymentSuccess = (receipt) => {
+    load();
+    if (receipt?.id) navigate(`/receipt/${receipt.id}`);
+  };
+
   if (loading || !student) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-4 border-primary-600 border-t-transparent rounded-full" />
+          <div className="orbit-spinner" />
         </div>
       </Layout>
     );
@@ -67,7 +74,10 @@ export default function StudentProfile() {
     <Layout>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
         <h1 className="text-xl font-bold text-gray-800">Student Profile</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-primary flex items-center gap-2" onClick={() => setPaymentOpen(true)}>
+            <FiDollarSign /> Receive Payment
+          </button>
           {student.status === 'active' && (
             <button className="btn-secondary flex items-center gap-2" onClick={() => setCompleteOpen(true)}>
               <FiCheckCircle /> Complete Student
@@ -76,7 +86,7 @@ export default function StudentProfile() {
           <Link to={`/students/${id}/edit`} className="btn-secondary flex items-center gap-2">
             <FiEdit2 /> Edit
           </Link>
-          <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2" onClick={() => setDeleteOpen(true)}>
+          <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors" onClick={() => setDeleteOpen(true)}>
             <FiTrash2 /> Delete
           </button>
         </div>
@@ -87,7 +97,7 @@ export default function StudentProfile() {
           {student.photo ? (
             <img src={`${apiBaseURL.replace(/\/api$/, '')}${student.photo}`} alt={student.name} className="w-24 h-24 rounded-full object-cover mb-3" />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-2xl font-bold mb-3">
+            <div className="w-24 h-24 rounded-full bg-solar-gradient text-white flex items-center justify-center text-2xl font-bold mb-3">
               {student.name?.[0]}
             </div>
           )}
@@ -113,7 +123,12 @@ export default function StudentProfile() {
       </div>
 
       <div className="card overflow-x-auto">
-        <h3 className="font-semibold text-gray-700 mb-3">Payment History</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-700">Payment History</h3>
+          <button className="btn-ghost flex items-center gap-1.5 text-sm" onClick={() => setPaymentOpen(true)}>
+            <FiDollarSign size={15} /> Receive Payment
+          </button>
+        </div>
         <table className="table-base">
           <thead>
             <tr>
@@ -161,6 +176,13 @@ export default function StudentProfile() {
         onClose={() => setDeleteOpen(false)}
         onConfirm={handleDelete}
         message="This will permanently delete this student and all related records."
+      />
+
+      <PaymentModal
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        student={{ id: student.id, name: student.name, rollNo: student.rollNo, phone: student.phone }}
+        onSuccess={handlePaymentSuccess}
       />
     </Layout>
   );

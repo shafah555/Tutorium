@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2, FiDollarSign } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import PaymentModal from '../components/PaymentModal';
 import api from '../services/api';
 
 export default function Students() {
@@ -16,6 +17,7 @@ export default function Students() {
   const [hscYear, setHscYear] = useState('');
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState(null);
+  const [payStudent, setPayStudent] = useState(null);
 
   const fetchStudents = useCallback((page = 1) => {
     setLoading(true);
@@ -109,6 +111,9 @@ export default function Students() {
                   <td><StatusBadge status={s.status} /></td>
                   <td>
                     <div className="flex justify-end gap-3 text-gray-500">
+                      <button onClick={() => setPayStudent(s)} title="Receive Payment" className="hover:text-primary-600">
+                        <FiDollarSign />
+                      </button>
                       <Link to={`/students/${s.id}`} title="View"><FiEye /></Link>
                       <Link to={`/students/${s.id}/edit`} title="Edit"><FiEdit2 /></Link>
                       <button onClick={() => setDeleteId(s.id)} title="Delete" className="hover:text-red-600">
@@ -130,6 +135,13 @@ export default function Students() {
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
         message="This will permanently delete the student and all related payment records."
+      />
+
+      <PaymentModal
+        open={!!payStudent}
+        onClose={() => setPayStudent(null)}
+        student={payStudent}
+        onSuccess={() => fetchStudents(pagination.page)}
       />
     </Layout>
   );

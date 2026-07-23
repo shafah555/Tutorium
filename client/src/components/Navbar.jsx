@@ -20,14 +20,14 @@ export default function Navbar({ onMenuClick }) {
       <div className="hidden md:block" />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-700">
-          <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-solar-gradient text-white flex items-center justify-center shadow-sm">
             <FiUser size={16} />
           </div>
           <span className="font-medium">{user?.name || 'Tutor'}</span>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 transition-colors"
+          className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary-700 transition-colors"
           title="Logout"
         >
           <FiLogOut size={16} />

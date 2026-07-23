@@ -10,7 +10,6 @@ import Students from './pages/Students';
 import StudentForm from './pages/StudentForm';
 import StudentProfile from './pages/StudentProfile';
 import Payments from './pages/Payments';
-import ReceivePayment from './pages/ReceivePayment';
 import Receipt from './pages/Receipt';
 import ModelTests from './pages/ModelTests';
 import Reports from './pages/Reports';
@@ -29,8 +28,9 @@ export default function App() {
       <Route path="/students/add" element={<ProtectedRoute><StudentForm /></ProtectedRoute>} />
       <Route path="/students/:id" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
       <Route path="/students/:id/edit" element={<ProtectedRoute><StudentForm /></ProtectedRoute>} />
+      {/* Receiving a payment is now done inline via PaymentModal (from a student's
+          profile, the Students list, or the Payments ledger) — no separate page. */}
       <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-      <Route path="/payments/receive" element={<ProtectedRoute><ReceivePayment /></ProtectedRoute>} />
       <Route path="/receipt/:id" element={<ProtectedRoute><Receipt /></ProtectedRoute>} />
       <Route path="/model-tests" element={<ProtectedRoute><ModelTests /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />

@@ -1,22 +1,47 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FiSearch } from 'react-icons/fi';
-import Layout from '../components/Layout';
+import Modal from './Modal';
 import api from '../services/api';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function ReceivePayment() {
+/**
+ * Drop-in "Receive Payment" modal. Used directly from a student's profile
+ * (student pre-selected & locked) or from the Payments ledger (teacher
+ * searches for a student first) — either way, no dedicated page/navigation
+ * is needed to record a payment.
+ *
+ * Props:
+ *  - open, onClose
+ *  - student: optional pre-selected student ({ id, name, rollNo, phone }).
+ *             If omitted, a search box is shown instead.
+ *  - onSuccess(receipt): called after a successful payment
+ */
+export default function PaymentModal({ open, onClose, student = null, onSuccess }) {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(student);
   const [pendingMonths, setPendingMonths] = useState([]);
   const [selectedIds, setSelectedIds] = useState({});
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [loadingMonths, setLoadingMonths] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const navigate = useNavigate();
+
+  // Reset local state whenever the modal is (re)opened
+  useEffect(() => {
+    if (open) {
+      setSelectedStudent(student);
+      setSearch('');
+      setResults([]);
+      setSelectedIds({});
+      setPaymentMethod('Cash');
+      setPaymentDate(new Date().toISOString().slice(0, 10));
+      if (student) loadPendingMonths(student.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, student]);
 
   const searchStudents = useCallback(() => {
     if (!search) return setResults([]);
@@ -24,17 +49,29 @@ export default function ReceivePayment() {
   }, [search]);
 
   useEffect(() => {
+    if (!open || student) return; // no free-text search when a student is pre-locked
     const timer = setTimeout(searchStudents, 300);
     return () => clearTimeout(timer);
-  }, [searchStudents]);
+  }, [search, open, student, searchStudents]);
 
-  const selectStudent = async (student) => {
-    setSelectedStudent(student);
+  const loadPendingMonths = async (studentId) => {
+    setLoadingMonths(true);
+    try {
+      const res = await api.get(`/payments/pending/${studentId}`);
+      setPendingMonths(res.data.data);
+    } catch {
+      toast.error('Failed to load pending months');
+    } finally {
+      setLoadingMonths(false);
+    }
+  };
+
+  const selectStudent = (s) => {
+    setSelectedStudent(s);
     setResults([]);
     setSearch('');
     setSelectedIds({});
-    const res = await api.get(`/payments/pending/${student.id}`);
-    setPendingMonths(res.data.data);
+    loadPendingMonths(s.id);
   };
 
   const toggleMonth = (payment) => {
@@ -69,7 +106,8 @@ export default function ReceivePayment() {
         paymentMethod,
       });
       toast.success('Payment received successfully!');
-      navigate(`/receipt/${res.data.data.receipt.id}`);
+      onSuccess?.(res.data.data.receipt);
+      onClose();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Payment failed');
     } finally {
@@ -78,54 +116,60 @@ export default function ReceivePayment() {
   };
 
   return (
-    <Layout>
-      <h1 className="text-xl font-bold text-gray-800 mb-5">Receive Payment</h1>
-
-      <div className="card mb-4 max-w-2xl">
-        <label className="label">Select Student</label>
-        {selectedStudent ? (
-          <div className="flex items-center justify-between bg-primary-50 rounded-lg px-4 py-3">
-            <div>
-              <p className="font-semibold">{selectedStudent.name}</p>
-              <p className="text-xs text-gray-500">{selectedStudent.rollNo} • {selectedStudent.phone}</p>
-            </div>
-            <button className="text-sm text-primary-600 hover:underline" onClick={() => { setSelectedStudent(null); setPendingMonths([]); }}>
-              Change
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-3 text-gray-400" />
-            <input
-              className="input-field pl-9"
-              placeholder="Search by name, roll, or phone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {results.length > 0 && (
-              <div className="absolute z-10 bg-white border border-gray-200 rounded-lg mt-1 w-full shadow-lg max-h-64 overflow-y-auto">
-                {results.map((s) => (
-                  <button
-                    key={s.id}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
-                    onClick={() => selectStudent(s)}
-                  >
-                    <span className="font-medium">{s.name}</span> — {s.rollNo} ({s.phone})
-                  </button>
-                ))}
+    <Modal open={open} onClose={onClose} title="Receive Payment" maxWidth="max-w-lg">
+      {!student && (
+        <div className="mb-4">
+          <label className="label">Select Student</label>
+          {selectedStudent ? (
+            <div className="flex items-center justify-between bg-primary-50 rounded-lg px-4 py-3">
+              <div>
+                <p className="font-semibold">{selectedStudent.name}</p>
+                <p className="text-xs text-gray-500">{selectedStudent.rollNo} • {selectedStudent.phone}</p>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <button
+                className="text-sm text-primary-600 hover:underline"
+                onClick={() => { setSelectedStudent(null); setPendingMonths([]); setSelectedIds({}); }}
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-3 text-gray-400" />
+              <input
+                autoFocus
+                className="input-field pl-9"
+                placeholder="Search by name, roll, or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {results.length > 0 && (
+                <div className="absolute z-10 bg-white border border-gray-200 rounded-lg mt-1 w-full shadow-lg max-h-64 overflow-y-auto">
+                  {results.map((s) => (
+                    <button
+                      key={s.id}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
+                      onClick={() => selectStudent(s)}
+                    >
+                      <span className="font-medium">{s.name}</span> — {s.rollNo} ({s.phone})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedStudent && (
-        <div className="card max-w-2xl">
+        <>
           <h3 className="font-semibold text-gray-700 mb-3">Pending Months</h3>
-          {pendingMonths.length === 0 ? (
+          {loadingMonths ? (
+            <div className="flex justify-center py-6"><div className="orbit-spinner" /></div>
+          ) : pendingMonths.length === 0 ? (
             <p className="text-sm text-gray-400 mb-4">No pending months for this student. They are fully paid up!</p>
           ) : (
-            <div className="space-y-2 mb-5">
+            <div className="space-y-2 mb-5 max-h-56 overflow-y-auto pr-1">
               {pendingMonths.map((p) => (
                 <label key={p.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
                   <div className="flex items-center gap-3">
@@ -168,8 +212,8 @@ export default function ReceivePayment() {
               {submitting ? 'Processing...' : 'Receive Payment'}
             </button>
           </div>
-        </div>
+        </>
       )}
-    </Layout>
+    </Modal>
   );
 }
