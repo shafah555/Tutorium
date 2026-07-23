@@ -6,12 +6,12 @@ const { Op } = require('sequelize');
  * Format: HSC-{YY}{NNN}  e.g. HSC-25001, HSC-25002 ...
  * Each HSC year has its own independent, never-duplicated sequence.
  */
-async function generateRollNumber(hscYear) {
+async function generateRollNumber(hscYear, userId) {
   const yy = String(hscYear).slice(-2);
   const prefix = `HSC-${yy}`;
 
   const lastStudent = await Student.findOne({
-    where: { rollNo: { [Op.like]: `${prefix}%` } },
+    where: { userId, rollNo: { [Op.like]: `${prefix}%` } },
     order: [['rollNo', 'DESC']],
   });
 

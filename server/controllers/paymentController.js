@@ -1,23 +1,35 @@
 const { Op } = require('sequelize');
 const { MonthlyPayment, Student, Receipt } = require('../models');
 const { generateReceiptNumber } = require('../utils/receiptNumber');
+const { teacherWhere } = require('../utils/teacherScope');
 const sequelize = require('../config/database');
+
+async function findTeacherStudent(req, studentId) {
+  return Student.findOne({ where: teacherWhere(req, { id: studentId }) });
+}
 
 // GET /api/payments?studentId=&status=&month=&year=
 exports.getPayments = async (req, res, next) => {
   try {
     const { studentId, status, month, year, page = 1, limit = 50 } = req.query;
     const where = {};
-    if (studentId) where.studentId = studentId;
     if (status) where.status = status;
     if (month) where.month = month;
     if (year) where.year = year;
+
+    const studentWhere = teacherWhere(req);
+    if (studentId) studentWhere.id = studentId;
 
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     const { rows, count } = await MonthlyPayment.findAndCountAll({
       where,
-      include: [{ model: Student, attributes: ['id', 'name', 'rollNo', 'phone'] }],
+      include: [{
+        model: Student,
+        attributes: ['id', 'name', 'rollNo', 'phone'],
+        where: studentWhere,
+        required: true,
+      }],
       order: [['year', 'DESC'], ['month', 'DESC']],
       limit: parseInt(limit, 10),
       offset,
@@ -33,12 +45,17 @@ exports.getPayments = async (req, res, next) => {
   }
 };
 
-// GET /api/payments/pending/:studentId - list of pending (due/partial) months for a student
+// GET /api/payments/pending/:studentId
 exports.getPendingMonths = async (req, res, next) => {
   try {
+    const student = await findTeacherStudent(req, req.params.studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
     const pending = await MonthlyPayment.findAll({
       where: {
-        studentId: req.params.studentId,
+        studentId: student.id,
         status: { [Op.in]: ['due', 'partial'] },
       },
       order: [['year', 'ASC'], ['month', 'ASC']],
@@ -50,8 +67,6 @@ exports.getPendingMonths = async (req, res, next) => {
 };
 
 // POST /api/payments
-// body: { studentId, payments: [{ paymentId, amount }], paymentDate, paymentMethod, notes }
-// Receives payment for one or multiple months at once and generates a single receipt.
 exports.receivePayment = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
@@ -62,19 +77,19 @@ exports.receivePayment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'studentId and payments[] are required.' });
     }
 
-    const student = await Student.findByPk(studentId);
+    const student = await findTeacherStudent(req, studentId);
     if (!student) {
       await t.rollback();
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const receiptNo = await generateReceiptNumber();
+    const receiptNo = await generateReceiptNumber(req.user.id);
     let totalPaid = 0;
     const paidDetails = [];
 
     for (const p of payments) {
       const record = await MonthlyPayment.findOne({
-        where: { id: p.paymentId, studentId },
+        where: { id: p.paymentId, studentId: student.id },
         transaction: t,
         lock: t.LOCK.UPDATE,
       });
@@ -103,7 +118,7 @@ exports.receivePayment = async (req, res, next) => {
 
     const receipt = await Receipt.create({
       receiptNo,
-      studentId,
+      studentId: student.id,
       paymentType: 'tuition',
       details: paidDetails,
       amount: totalPaid,
@@ -123,10 +138,12 @@ exports.receivePayment = async (req, res, next) => {
   }
 };
 
-// PUT /api/payments/:id - manual edit of a monthly payment record
+// PUT /api/payments/:id
 exports.updatePayment = async (req, res, next) => {
   try {
-    const record = await MonthlyPayment.findByPk(req.params.id);
+    const record = await MonthlyPayment.findByPk(req.params.id, {
+      include: [{ model: Student, where: teacherWhere(req), required: true }],
+    });
     if (!record) return res.status(404).json({ success: false, message: 'Payment record not found' });
 
     const fields = ['paidAmount', 'dueAmount', 'status', 'paymentDate', 'paymentMethod', 'notes'];

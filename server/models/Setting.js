@@ -7,6 +7,12 @@ const Setting = sequelize.define('Setting', {
     primaryKey: true,
     autoIncrement: true,
   },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    unique: true,
+    references: { model: 'users', key: 'id' },
+  },
   instituteName: {
     type: DataTypes.STRING,
     defaultValue: 'Tutorium',

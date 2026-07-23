@@ -9,6 +9,15 @@ const Setting = require('./Setting');
 const DashboardLog = require('./DashboardLog');
 
 // Associations
+User.hasMany(Student, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Student.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasOne(Setting, { foreignKey: 'userId', onDelete: 'CASCADE' });
+Setting.belongsTo(User, { foreignKey: 'userId' });
+
+User.hasMany(ModelTest, { foreignKey: 'userId', onDelete: 'CASCADE' });
+ModelTest.belongsTo(User, { foreignKey: 'userId' });
+
 Student.hasMany(MonthlyPayment, { foreignKey: 'studentId', onDelete: 'CASCADE' });
 MonthlyPayment.belongsTo(Student, { foreignKey: 'studentId' });
 

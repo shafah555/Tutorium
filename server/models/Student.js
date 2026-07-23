@@ -7,10 +7,14 @@ const Student = sequelize.define('Student', {
     primaryKey: true,
     autoIncrement: true,
   },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: { model: 'users', key: 'id' },
+  },
   rollNo: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
   },
   name: {
     type: DataTypes.STRING,
@@ -53,6 +57,9 @@ const Student = sequelize.define('Student', {
 }, {
   tableName: 'students',
   timestamps: true,
+  indexes: [
+    { unique: true, fields: ['userId', 'rollNo'] },
+  ],
 });
 
 module.exports = Student;

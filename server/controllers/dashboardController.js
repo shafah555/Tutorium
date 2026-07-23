@@ -1,5 +1,6 @@
-const { Op, fn, col, literal } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const { Student, MonthlyPayment, ModelTestPayment } = require('../models');
+const { teacherWhere } = require('../utils/teacherScope');
 
 // GET /api/dashboard
 exports.getDashboard = async (req, res, next) => {
@@ -7,16 +8,18 @@ exports.getDashboard = async (req, res, next) => {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
+    const studentScope = teacherWhere(req);
 
-    const totalStudents = await Student.count();
-    const activeStudents = await Student.count({ where: { status: 'active' } });
-    const completedStudents = await Student.count({ where: { status: 'completed' } });
+    const totalStudents = await Student.count({ where: studentScope });
+    const activeStudents = await Student.count({ where: { ...studentScope, status: 'active' } });
+    const completedStudents = await Student.count({ where: { ...studentScope, status: 'completed' } });
 
     const thisMonthPayments = await MonthlyPayment.findAll({
       where: { month, year },
+      include: [{ model: Student, attributes: [], where: studentScope, required: true }],
       attributes: [
-        [fn('SUM', col('paidAmount')), 'collected'],
-        [fn('SUM', col('dueAmount')), 'due'],
+        [fn('SUM', col('MonthlyPayment.paidAmount')), 'collected'],
+        [fn('SUM', col('MonthlyPayment.dueAmount')), 'due'],
       ],
       raw: true,
     });
@@ -31,12 +34,12 @@ exports.getDashboard = async (req, res, next) => {
           [Op.lt]: new Date(year, month, 1),
         },
       },
-      attributes: [[fn('SUM', col('paidAmount')), 'total']],
+      include: [{ model: Student, attributes: [], where: studentScope, required: true }],
+      attributes: [[fn('SUM', col('ModelTestPayment.paidAmount')), 'total']],
       raw: true,
     });
     const modelTestCollection = Number(modelTestPayments[0]?.total || 0);
 
-    // Monthly collection chart - last 6 months
     const months = [];
     for (let i = 5; i >= 0; i -= 1) {
       const d = new Date(year, month - 1 - i, 1);
@@ -47,7 +50,8 @@ exports.getDashboard = async (req, res, next) => {
       months.map(async (m) => {
         const result = await MonthlyPayment.findAll({
           where: { month: m.month, year: m.year },
-          attributes: [[fn('SUM', col('paidAmount')), 'collected']],
+          include: [{ model: Student, attributes: [], where: studentScope, required: true }],
+          attributes: [[fn('SUM', col('MonthlyPayment.paidAmount')), 'collected']],
           raw: true,
         });
         return {
@@ -58,17 +62,16 @@ exports.getDashboard = async (req, res, next) => {
       })
     );
 
-    // Notifications
     const studentsWithDue = await MonthlyPayment.count({
       where: { status: { [Op.in]: ['due', 'partial'] } },
+      include: [{ model: Student, attributes: [], where: studentScope, required: true }],
       distinct: true,
       col: 'studentId',
     });
 
     const todaysPaymentsCount = await MonthlyPayment.count({
-      where: {
-        paymentDate: new Date().toISOString().slice(0, 10),
-      },
+      where: { paymentDate: new Date().toISOString().slice(0, 10) },
+      include: [{ model: Student, attributes: [], where: studentScope, required: true }],
     });
 
     res.json({

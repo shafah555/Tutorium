@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { User } = require('../models');
+const { User, Setting } = require('../models');
 const { generateOtp } = require('../utils/otp');
 const { sendEmail } = require('../helpers/mailer');
 
@@ -13,17 +12,9 @@ function signToken(user) {
   );
 }
 
-// POST /api/auth/register  (only allowed if no teacher account exists yet - single tutor system)
+// POST /api/auth/register  — each teacher gets their own isolated account
 exports.register = async (req, res, next) => {
   try {
-    const existing = await User.findOne();
-    if (existing) {
-      return res.status(403).json({
-        success: false,
-        message: 'A teacher account already exists. This system supports only one account. Please log in instead.',
-      });
-    }
-
     const { name, email, phone, password } = req.body;
     if (!name || !password || (!email && !phone)) {
       return res.status(400).json({
@@ -32,8 +23,27 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    const { Op } = require('sequelize');
+    const orConditions = [];
+    if (email) orConditions.push({ email });
+    if (phone) orConditions.push({ phone });
+    const duplicate = await User.findOne({ where: { [Op.or]: orConditions } });
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email or phone already exists. Please log in instead.',
+      });
+    }
+
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({ name, email, phone, password: hashed });
+
+    await Setting.create({
+      userId: user.id,
+      instituteName: `${name}'s Institute`,
+      tutorName: name,
+      phone: phone || '',
+    });
 
     const token = signToken(user);
     res.status(201).json({

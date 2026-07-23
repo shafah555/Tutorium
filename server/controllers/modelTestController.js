@@ -1,11 +1,15 @@
 const { ModelTest, ModelTestPayment, Student, Receipt } = require('../models');
 const { generateReceiptNumber } = require('../utils/receiptNumber');
+const { teacherWhere } = require('../utils/teacherScope');
 const sequelize = require('../config/database');
 
 // GET /api/model-tests
 exports.getModelTests = async (req, res, next) => {
   try {
-    const tests = await ModelTest.findAll({ order: [['examDate', 'DESC']] });
+    const tests = await ModelTest.findAll({
+      where: teacherWhere(req),
+      order: [['examDate', 'DESC']],
+    });
     res.json({ success: true, data: tests });
   } catch (err) {
     next(err);
@@ -19,7 +23,13 @@ exports.createModelTest = async (req, res, next) => {
     if (!title || fee === undefined) {
       return res.status(400).json({ success: false, message: 'title and fee are required.' });
     }
-    const test = await ModelTest.create({ title, examDate, fee, description });
+    const test = await ModelTest.create({
+      userId: req.user.id,
+      title,
+      examDate,
+      fee,
+      description,
+    });
     res.status(201).json({ success: true, message: 'Model test created.', data: test });
   } catch (err) {
     next(err);
@@ -29,7 +39,7 @@ exports.createModelTest = async (req, res, next) => {
 // PUT /api/model-tests/:id
 exports.updateModelTest = async (req, res, next) => {
   try {
-    const test = await ModelTest.findByPk(req.params.id);
+    const test = await ModelTest.findOne({ where: teacherWhere(req, { id: req.params.id }) });
     if (!test) return res.status(404).json({ success: false, message: 'Model test not found' });
     ['title', 'examDate', 'fee', 'description'].forEach((f) => {
       if (req.body[f] !== undefined) test[f] = req.body[f];
@@ -44,7 +54,7 @@ exports.updateModelTest = async (req, res, next) => {
 // DELETE /api/model-tests/:id
 exports.deleteModelTest = async (req, res, next) => {
   try {
-    const test = await ModelTest.findByPk(req.params.id);
+    const test = await ModelTest.findOne({ where: teacherWhere(req, { id: req.params.id }) });
     if (!test) return res.status(404).json({ success: false, message: 'Model test not found' });
     await test.destroy();
     res.json({ success: true, message: 'Model test deleted.' });
@@ -58,21 +68,21 @@ exports.payModelTest = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { studentId, amount, paymentDate } = req.body;
-    const test = await ModelTest.findByPk(req.params.id);
+    const test = await ModelTest.findOne({ where: teacherWhere(req, { id: req.params.id }) });
     if (!test) {
       await t.rollback();
       return res.status(404).json({ success: false, message: 'Model test not found' });
     }
-    const student = await Student.findByPk(studentId);
+    const student = await Student.findOne({ where: teacherWhere(req, { id: studentId }) });
     if (!student) {
       await t.rollback();
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const receiptNo = await generateReceiptNumber();
+    const receiptNo = await generateReceiptNumber(req.user.id);
 
     const payment = await ModelTestPayment.create({
-      studentId,
+      studentId: student.id,
       testId: test.id,
       paidAmount: amount,
       paymentDate: paymentDate || new Date(),
@@ -81,7 +91,7 @@ exports.payModelTest = async (req, res, next) => {
 
     const receipt = await Receipt.create({
       receiptNo,
-      studentId,
+      studentId: student.id,
       paymentType: 'model_test',
       details: { testId: test.id, title: test.title },
       amount,

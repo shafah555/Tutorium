@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const { MonthlyPayment, Student, ModelTest, ModelTestPayment } = require('../models');
+const { teacherWhere } = require('../utils/teacherScope');
 
 function sendExport(res, filename, rows, format) {
   if (format === 'excel') {
@@ -45,9 +46,15 @@ function sendExport(res, filename, rows, format) {
     return null;
   }
 
-  // default JSON
   return res.json({ success: true, data: rows });
 }
+
+const studentInclude = (req) => ({
+  model: Student,
+  attributes: ['name', 'rollNo', 'phone'],
+  where: teacherWhere(req),
+  required: true,
+});
 
 // GET /api/reports/monthly?month=&year=&format=
 exports.monthlyCollectionReport = async (req, res, next) => {
@@ -59,7 +66,7 @@ exports.monthlyCollectionReport = async (req, res, next) => {
 
     const payments = await MonthlyPayment.findAll({
       where,
-      include: [{ model: Student, attributes: ['name', 'rollNo', 'phone'] }],
+      include: [studentInclude(req)],
       order: [['year', 'DESC'], ['month', 'DESC']],
     });
 
@@ -88,7 +95,7 @@ exports.dueReport = async (req, res, next) => {
     const { format = 'json' } = req.query;
     const payments = await MonthlyPayment.findAll({
       where: { status: { [Op.in]: ['due', 'partial'] } },
-      include: [{ model: Student, attributes: ['name', 'rollNo', 'phone'] }],
+      include: [studentInclude(req)],
       order: [['year', 'ASC'], ['month', 'ASC']],
     });
 
@@ -108,11 +115,11 @@ exports.dueReport = async (req, res, next) => {
   }
 };
 
-// GET /api/reports/students?format=  (includes both active list and completed list depending on status query)
+// GET /api/reports/students?format=
 exports.studentReport = async (req, res, next) => {
   try {
     const { status, format = 'json' } = req.query;
-    const where = {};
+    const where = teacherWhere(req);
     if (status) where.status = status;
 
     const students = await Student.findAll({ where, order: [['rollNo', 'ASC']] });
@@ -142,8 +149,8 @@ exports.modelTestReport = async (req, res, next) => {
     const { format = 'json' } = req.query;
     const payments = await ModelTestPayment.findAll({
       include: [
-        { model: Student, attributes: ['name', 'rollNo'] },
-        { model: ModelTest, attributes: ['title', 'fee'] },
+        { model: Student, attributes: ['name', 'rollNo'], where: teacherWhere(req), required: true },
+        { model: ModelTest, attributes: ['title', 'fee'], where: teacherWhere(req), required: true },
       ],
       order: [['paymentDate', 'DESC']],
     });
@@ -167,15 +174,15 @@ exports.modelTestReport = async (req, res, next) => {
 exports.incomeReport = async (req, res, next) => {
   try {
     const { groupBy = 'month', format = 'json' } = req.query;
-
     const groupFields = groupBy === 'year' ? ['year'] : ['year', 'month'];
 
     const tuition = await MonthlyPayment.findAll({
       attributes: [
-        ...groupFields,
-        [fn('SUM', col('paidAmount')), 'tuitionCollected'],
+        ...groupFields.map((f) => col(`MonthlyPayment.${f}`)),
+        [fn('SUM', col('MonthlyPayment.paidAmount')), 'tuitionCollected'],
       ],
-      group: groupFields,
+      include: [{ model: Student, attributes: [], where: teacherWhere(req), required: true }],
+      group: groupFields.map((f) => `MonthlyPayment.${f}`),
       order: [['year', 'DESC']],
       raw: true,
     });

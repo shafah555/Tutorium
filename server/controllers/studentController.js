@@ -2,7 +2,12 @@ const { Op } = require('sequelize');
 const { Student, MonthlyPayment } = require('../models');
 const { generateRollNumber } = require('../utils/rollNumber');
 const { generatePayableMonths } = require('../utils/monthGenerator');
+const { teacherWhere } = require('../utils/teacherScope');
 const sequelize = require('../config/database');
+
+async function findTeacherStudent(req, id) {
+  return Student.findOne({ where: teacherWhere(req, { id }) });
+}
 
 // GET /api/students?search=&status=&class=&group=&hscYear=&page=&limit=
 exports.getStudents = async (req, res, next) => {
@@ -12,7 +17,7 @@ exports.getStudents = async (req, res, next) => {
       page = 1, limit = 20,
     } = req.query;
 
-    const where = {};
+    const where = teacherWhere(req);
     if (status) where.status = status;
     if (className) where.class = className;
     if (group) where.group = group;
@@ -55,7 +60,8 @@ exports.getStudents = async (req, res, next) => {
 // GET /api/students/:id
 exports.getStudent = async (req, res, next) => {
   try {
-    const student = await Student.findByPk(req.params.id, {
+    const student = await Student.findOne({
+      where: teacherWhere(req, { id: req.params.id }),
       include: [{ model: MonthlyPayment }],
     });
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
@@ -83,14 +89,16 @@ exports.createStudent = async (req, res, next) => {
       });
     }
 
-    // Duplicate phone warning (non-blocking, informational)
-    const existingPhone = await Student.findOne({ where: { phone } });
+    const existingPhone = await Student.findOne({
+      where: teacherWhere(req, { phone }),
+    });
 
-    const rollNo = await generateRollNumber(hscYear);
+    const rollNo = await generateRollNumber(hscYear, req.user.id);
 
     const photo = req.file ? `/uploads/${req.file.filename}` : null;
 
     const student = await Student.create({
+      userId: req.user.id,
       rollNo,
       name,
       fatherName,
@@ -109,7 +117,6 @@ exports.createStudent = async (req, res, next) => {
       status: 'active',
     }, { transaction: t });
 
-    // Auto-generate payable months from joining date to current month
     const months = generatePayableMonths(joiningDate);
     const paymentRows = months.map((m) => ({
       studentId: student.id,
@@ -141,7 +148,7 @@ exports.createStudent = async (req, res, next) => {
 // PUT /api/students/:id
 exports.updateStudent = async (req, res, next) => {
   try {
-    const student = await Student.findByPk(req.params.id);
+    const student = await findTeacherStudent(req, req.params.id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const fields = [
@@ -167,7 +174,7 @@ exports.updateStudent = async (req, res, next) => {
 // DELETE /api/students/:id
 exports.deleteStudent = async (req, res, next) => {
   try {
-    const student = await Student.findByPk(req.params.id);
+    const student = await findTeacherStudent(req, req.params.id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
     await student.destroy();
     res.json({ success: true, message: 'Student deleted successfully.' });
@@ -184,14 +191,13 @@ exports.completeStudent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'completionDate is required.' });
     }
 
-    const student = await Student.findByPk(req.params.id);
+    const student = await findTeacherStudent(req, req.params.id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     student.status = 'completed';
     student.completionDate = completionDate;
     await student.save();
 
-    // Remove any auto-generated future due months beyond completion month with zero paid amount
     const completion = new Date(completionDate);
     const cMonth = completion.getMonth() + 1;
     const cYear = completion.getFullYear();
