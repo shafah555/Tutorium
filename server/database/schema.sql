@@ -1,4 +1,4 @@
-- Tutorium Database Schema (PostgreSQL)
+-- Tutorium Database Schema (PostgreSQL)
 -- This file is a reference/backup schema mirroring the Sequelize models.
 -- Sequelize's sequelize.sync() or migrations will create these automatically;
 -- use this file for manual setup, backups, or restoring on a fresh PostgreSQL instance.
@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS students (
     id SERIAL PRIMARY KEY,
-    "rollNo" VARCHAR(50) NOT NULL UNIQUE,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "rollNo" VARCHAR(50) NOT NULL,
     name VARCHAR(255) NOT NULL,
     "fatherName" VARCHAR(255),
     "motherName" VARCHAR(255),
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS monthly_payments (
 
 CREATE TABLE IF NOT EXISTS model_tests (
     id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     "examDate" DATE,
     fee NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -95,6 +97,7 @@ CREATE TABLE IF NOT EXISTS payment_receipts (
 
 CREATE TABLE IF NOT EXISTS settings (
     id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     "instituteName" VARCHAR(255) DEFAULT 'Tutorium',
     "tutorName" VARCHAR(255),
     phone VARCHAR(50),
@@ -115,6 +118,7 @@ CREATE TABLE IF NOT EXISTS dashboard_logs (
     "createdAt" TIMESTAMP DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS students_user_id_roll_no ON students("userId", "rollNo");
 CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
 CREATE INDEX IF NOT EXISTS idx_students_hscyear ON students("hscYear");
 CREATE INDEX IF NOT EXISTS idx_payments_student ON monthly_payments("studentId");
