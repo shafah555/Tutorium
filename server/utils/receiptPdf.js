@@ -50,6 +50,19 @@ function resolveAssetBuffer(uploadsPath, asset) {
 async function streamReceiptPdf({ res, receipt, student, settings, uploadsPath }) {
   const doc = new PDFDocument({ size: 'A5', margin: 40 });
 
+  // pdfkit can emit an async 'error' event (e.g. if the client disconnects
+  // mid-stream) that a surrounding try/catch will NOT catch. Without this
+  // handler that error is unhandled and can crash the process / hang the
+  // request, which shows up as "the PDF never finishes generating".
+  doc.on('error', (err) => {
+    console.error('PDF generation stream error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Failed to generate PDF' });
+    } else {
+      res.destroy(err);
+    }
+  });
+
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename=receipt-${receipt.receiptNo}.pdf`);
 

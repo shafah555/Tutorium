@@ -47,6 +47,14 @@ exports.getReceiptPdf = async (req, res, next) => {
       uploadsPath,
     });
   } catch (err) {
+    // If streamReceiptPdf already started writing the PDF to the response,
+    // we can't hand this off to the JSON error handler anymore — that would
+    // throw "Cannot set headers after they are sent" and leave the client
+    // with a corrupted, half-written PDF instead of a clear error.
+    if (res.headersSent) {
+      console.error('Error after PDF stream started:', err);
+      return res.destroy(err);
+    }
     next(err);
   }
 };

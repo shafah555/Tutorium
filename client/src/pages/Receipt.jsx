@@ -27,18 +27,43 @@ export default function Receipt() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const [downloading, setDownloading] = useState(false);
+
   const downloadPdf = () => {
     const base = apiBaseURL.replace(/\/api$/, '');
     const token = localStorage.getItem('tutorium_token');
+    setDownloading(true);
     fetch(`${base}/receipt/pdf/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.blob())
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/pdf')) {
+          // Server sent back a JSON error (or something else went wrong)
+          // instead of a PDF — surface it instead of downloading garbage.
+          let message = `Failed to generate PDF (${res.status})`;
+          if (contentType.includes('application/json')) {
+            try {
+              const data = await res.json();
+              message = data.message || message;
+            } catch (e) {
+              // ignore parse failure, fall back to default message
+            }
+          }
+          throw new Error(message);
+        }
+        return res.blob();
+      })
       .then((blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `receipt-${receipt.receiptNo}.pdf`;
+        document.body.appendChild(a);
         a.click();
-      });
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((err) => toast.error(err.message || 'Failed to download PDF'))
+      .finally(() => setDownloading(false));
   };
 
   if (loading || !receipt) {
@@ -57,8 +82,12 @@ export default function Receipt() {
         <button className="btn-secondary flex items-center gap-2" onClick={() => window.print()}>
           <FiPrinter /> Print
         </button>
-        <button className="btn-primary flex items-center gap-2" onClick={downloadPdf}>
-          <FiDownload /> Download PDF
+        <button
+          className="btn-primary flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={downloadPdf}
+          disabled={downloading}
+        >
+          <FiDownload /> {downloading ? 'Generating…' : 'Download PDF'}
         </button>
       </div>
 
