@@ -27,6 +27,16 @@ exports.getDashboard = async (req, res, next) => {
     const collectedThisMonth = Number(thisMonthPayments[0]?.collected || 0);
     const dueThisMonth = Number(thisMonthPayments[0]?.due || 0);
 
+    // Total outstanding balance across ALL months (not just the current one),
+    // for the "Total Due" dashboard card.
+    const totalDueResult = await MonthlyPayment.findAll({
+      where: { status: { [Op.in]: ['due', 'partial'] } },
+      include: [{ model: Student, attributes: [], where: studentScope, required: true }],
+      attributes: [[fn('SUM', col('MonthlyPayment.dueAmount')), 'totalDue']],
+      raw: true,
+    });
+    const totalDue = Number(totalDueResult[0]?.totalDue || 0);
+
     const modelTestPayments = await ModelTestPayment.findAll({
       where: {
         paymentDate: {
@@ -82,6 +92,7 @@ exports.getDashboard = async (req, res, next) => {
         completedStudents,
         collectedThisMonth,
         dueThisMonth,
+        totalDue,
         modelTestCollection,
         monthlyCollectionChart: chartData,
         notifications: {

@@ -14,7 +14,15 @@ const TEXT_FIELDS = [
   'monthlyFeeDefault', 'googleFormLink', 'receiptFooter',
 ];
 
-const assetUrl = (path) => (path ? `${apiBaseURL.replace(/\/api$/, '')}${path}` : null);
+// Logo/signature are now stored as base64 data URIs ("data:image/png;base64,...")
+// so they survive redeploys on hosts with an ephemeral filesystem. Older
+// records may still have a legacy "/uploads/xxx.png" path, which we resolve
+// against the API host for backward compatibility.
+const assetUrl = (value) => {
+  if (!value) return null;
+  if (value.startsWith('data:')) return value;
+  return `${apiBaseURL.replace(/\/api$/, '')}${value}`;
+};
 
 export default function Settings() {
   const { register, handleSubmit, reset } = useForm();

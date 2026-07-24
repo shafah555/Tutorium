@@ -4,14 +4,35 @@ const PDFDocument = require('pdfkit');
 const QRCode = require('qrcode');
 
 /**
- * Resolves a stored settings asset path (e.g. "/uploads/logo-123.png") to an
- * absolute file path on disk, returning null if it's missing/unreadable.
+ * Resolves a stored settings asset (logo/signature) into an image buffer
+ * that pdfkit's doc.image() can draw directly.
+ *
+ * Current format: a base64 data URI (e.g. "data:image/png;base64,....")
+ * stored straight in the database — this is what settingController now
+ * saves, since it survives redeploys on hosts with an ephemeral filesystem
+ * (Render free tier, etc.).
+ *
+ * Legacy format: a short "/uploads/xxx.png" path pointing at a file on disk.
+ * Kept as a fallback so any settings rows saved before this fix don't just
+ * break outright on hosts that do have a persistent /uploads directory.
  */
-function resolveAssetPath(uploadsPath, assetPath) {
-  if (!uploadsPath || !assetPath) return null;
-  const abs = path.join(uploadsPath, assetPath);
+function resolveAssetBuffer(uploadsPath, asset) {
+  if (!asset) return null;
+
+  if (asset.startsWith('data:')) {
+    const match = asset.match(/^data:[^;]+;base64,(.+)$/);
+    if (!match) return null;
+    try {
+      return Buffer.from(match[1], 'base64');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  if (!uploadsPath) return null;
+  const abs = path.join(uploadsPath, asset);
   try {
-    return fs.existsSync(abs) ? abs : null;
+    return fs.existsSync(abs) ? fs.readFileSync(abs) : null;
   } catch (e) {
     return null;
   }
@@ -36,14 +57,14 @@ async function streamReceiptPdf({ res, receipt, student, settings, uploadsPath }
 
   const currency = settings?.currency || 'BDT';
   const instituteName = settings?.instituteName || 'Tutorium';
-  const logoPath = resolveAssetPath(uploadsPath, settings?.logo);
-  const signaturePath = resolveAssetPath(uploadsPath, settings?.signature);
+  const logoBuffer = resolveAssetBuffer(uploadsPath, settings?.logo);
+  const signatureBuffer = resolveAssetBuffer(uploadsPath, settings?.signature);
 
   // Header (logo, if uploaded, sits to the left of the institute name)
   const headerTop = doc.y;
-  if (logoPath) {
+  if (logoBuffer) {
     try {
-      doc.image(logoPath, 40, headerTop, { fit: [50, 50] });
+      doc.image(logoBuffer, 40, headerTop, { fit: [50, 50] });
     } catch (e) {
       // Corrupt/unsupported image file; skip silently rather than failing the PDF.
     }
@@ -88,9 +109,9 @@ async function streamReceiptPdf({ res, receipt, student, settings, uploadsPath }
 
   // Signature (uploaded signature image is drawn just above the signature line, if present)
   const sigLineY = doc.y + 30;
-  if (signaturePath) {
+  if (signatureBuffer) {
     try {
-      doc.image(signaturePath, 40, sigLineY - 32, { fit: [110, 30] });
+      doc.image(signatureBuffer, 40, sigLineY - 32, { fit: [110, 30] });
     } catch (e) {
       // Corrupt/unsupported image file; fall back to a blank line.
     }

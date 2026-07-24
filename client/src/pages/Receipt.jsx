@@ -7,6 +7,14 @@ import api, { apiBaseURL } from '../services/api';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Logo/signature are stored as base64 data URIs; fall back to resolving a
+// legacy "/uploads/xxx.png" path against the API host for older records.
+const assetUrl = (value) => {
+  if (!value) return null;
+  if (value.startsWith('data:')) return value;
+  return `${apiBaseURL.replace(/\/api$/, '')}${value}`;
+};
+
 export default function Receipt() {
   const { id } = useParams();
   const [receipt, setReceipt] = useState(null);
@@ -58,7 +66,7 @@ export default function Receipt() {
         <div className="text-center mb-6">
           {receipt.settings?.logo ? (
             <img
-              src={`${apiBaseURL.replace(/\/api$/, '')}${receipt.settings.logo}`}
+              src={assetUrl(receipt.settings.logo)}
               alt="Institute logo"
               className="w-12 h-12 object-contain rounded-lg mx-auto mb-2 bg-white"
             />
@@ -107,7 +115,7 @@ export default function Receipt() {
           <div>
             {receipt.settings?.signature && (
               <img
-                src={`${apiBaseURL.replace(/\/api$/, '')}${receipt.settings.signature}`}
+                src={assetUrl(receipt.settings.signature)}
                 alt="Teacher signature"
                 className="h-10 object-contain mb-1"
               />

@@ -19,8 +19,8 @@ const Setting = sequelize.define('Setting', {
   },
   tutorName: DataTypes.STRING,
   phone: DataTypes.STRING,
-  logo: DataTypes.STRING,
-  signature: DataTypes.STRING,
+  logo: DataTypes.TEXT,
+  signature: DataTypes.TEXT,
   googleFormLink: DataTypes.STRING,
   receiptFooter: DataTypes.TEXT,
   monthlyFeeDefault: {

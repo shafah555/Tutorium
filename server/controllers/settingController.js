@@ -38,10 +38,12 @@ exports.updateSettings = async (req, res, next) => {
     }
 
     if (req.files?.logo?.[0]) {
-      settings.logo = `/uploads/${req.files.logo[0].filename}`;
+      const f = req.files.logo[0];
+      settings.logo = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
     }
     if (req.files?.signature?.[0]) {
-      settings.signature = `/uploads/${req.files.signature[0].filename}`;
+      const f = req.files.signature[0];
+      settings.signature = `data:${f.mimetype};base64,${f.buffer.toString('base64')}`;
     }
 
     await settings.save();

@@ -26,4 +26,17 @@ const upload = multer({
   limits: { fileSize: (parseInt(process.env.MAX_UPLOAD_MB, 10) || 5) * 1024 * 1024 },
 });
 
+// Used for small branding assets (settings logo/signature) that we base64-encode
+// straight into the database instead of writing to disk. Disk uploads (e.g.
+// student photos) don't survive a redeploy on hosts with an ephemeral
+// filesystem (Render free tier, etc.), which is why these are kept separate
+// from the disk-backed `upload` above and capped at a smaller size so the
+// database rows stay reasonable.
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB per image
+});
+
 module.exports = upload;
+module.exports.uploadMemory = uploadMemory;

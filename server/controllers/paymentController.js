@@ -138,6 +138,34 @@ exports.receivePayment = async (req, res, next) => {
   }
 };
 
+// DELETE /api/payments/:id
+// Reverses a received payment for this month back to "due". We intentionally
+// don't delete the MonthlyPayment row itself — it represents that student's
+// scheduled fee for that month, and other months can share the same
+// receiptNo, so hard-deleting it would corrupt the ledger. This effectively
+// undoes the payment so it can be re-recorded correctly.
+exports.deletePayment = async (req, res, next) => {
+  try {
+    const record = await MonthlyPayment.findByPk(req.params.id, {
+      include: [{ model: Student, where: teacherWhere(req), required: true }],
+    });
+    if (!record) return res.status(404).json({ success: false, message: 'Payment record not found' });
+
+    record.paidAmount = 0;
+    record.dueAmount = record.monthlyFee;
+    record.status = 'due';
+    record.paymentDate = null;
+    record.paymentMethod = null;
+    record.receiptNo = null;
+    record.notes = null;
+    await record.save();
+
+    res.json({ success: true, message: 'Payment removed and month marked as due again.', data: record });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // PUT /api/payments/:id
 exports.updatePayment = async (req, res, next) => {
   try {

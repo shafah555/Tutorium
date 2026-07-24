@@ -70,6 +70,7 @@ export default function Dashboard() {
         <StatCard label="Completed Students" value={data?.completedStudents ?? 0} icon={FiUserX} accent="amber" />
         <StatCard label="Collected This Month" value={`৳${data?.collectedThisMonth ?? 0}`} icon={FiDollarSign} accent="green" />
         <StatCard label="Due This Month" value={`৳${data?.dueThisMonth ?? 0}`} icon={FiAlertCircle} accent="red" />
+        <StatCard label="Total Due" value={`৳${data?.totalDue ?? 0}`} icon={FiAlertCircle} accent="red" />
         <StatCard label="Model Test Collection" value={`৳${data?.modelTestCollection ?? 0}`} icon={FiClipboard} accent="primary" />
       </div>
 
