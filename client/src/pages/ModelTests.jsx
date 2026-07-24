@@ -220,7 +220,20 @@ function ModelTestStudentsModal({ test, onClose }) {
           setRows(res.data.data.students);
           setSummary(res.data.data.summary);
         })
-        .catch(() => toast.error('Failed to load students'))
+        .catch((err) => {
+          // Surface the real reason instead of a generic message — a 404
+          // here usually means the backend hasn't been redeployed with this
+          // route yet; a 401 means the session expired; anything else is a
+          // genuine server error worth seeing in the toast.
+          console.error('Failed to load model test students:', err);
+          const status = err.response?.status;
+          const serverMessage = err.response?.data?.message;
+          if (status === 404) {
+            toast.error('Students endpoint not found (404) — is the latest backend deployed?');
+          } else {
+            toast.error(serverMessage || err.message || 'Failed to load students');
+          }
+        })
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(timer);
