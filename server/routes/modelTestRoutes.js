@@ -8,6 +8,7 @@ router.get('/', modelTests.getModelTests);
 router.post('/', modelTests.createModelTest);
 router.put('/:id', modelTests.updateModelTest);
 router.delete('/:id', modelTests.deleteModelTest);
+router.get('/:id/students', modelTests.getModelTestStudents);
 router.post('/:id/pay', modelTests.payModelTest);
 
 module.exports = router;

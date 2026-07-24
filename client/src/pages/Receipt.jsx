@@ -30,7 +30,13 @@ export default function Receipt() {
   const [downloading, setDownloading] = useState(false);
 
   const downloadPdf = () => {
-    const base = apiBaseURL.replace(/\/api$/, '');
+    // Build the URL directly off apiBaseURL (the same base axios uses) so
+    // we hit /api/receipt/pdf/:id, which is always mounted. Previously this
+    // stripped "/api" off the end and re-appended "/receipt/...", which
+    // produced a double slash (e.g. "https://host//receipt/pdf/13") whenever
+    // VITE_API_URL had a trailing slash or didn't end in exactly "/api" —
+    // Express then 404'd with "Route not found: //receipt/pdf/13".
+    const base = apiBaseURL.replace(/\/+$/, ''); // strip only trailing slashes
     const token = localStorage.getItem('tutorium_token');
     setDownloading(true);
     fetch(`${base}/receipt/pdf/${id}`, { headers: { Authorization: `Bearer ${token}` } })

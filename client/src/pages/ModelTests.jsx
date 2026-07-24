@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { FiPlus, FiTrash2, FiEdit2, FiDollarSign, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiEdit2, FiDollarSign, FiSearch, FiUsers } from 'react-icons/fi';
 import Layout from '../components/Layout';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
 
 export default function ModelTests() {
@@ -14,6 +15,7 @@ export default function ModelTests() {
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [payOpen, setPayOpen] = useState(null); // test object
+  const [studentsOpen, setStudentsOpen] = useState(null); // test object
 
   const { register, handleSubmit, reset } = useForm();
 
@@ -77,6 +79,7 @@ export default function ModelTests() {
               <p className="text-xs text-gray-400 mb-3">{t.examDate ? new Date(t.examDate).toLocaleDateString() : 'No date set'}</p>
               <p className="text-sm text-gray-600 mb-4">{t.description}</p>
               <div className="flex gap-3 text-gray-500">
+                <button onClick={() => setStudentsOpen(t)} className="hover:text-primary-600" title="View Students / Paid & Due"><FiUsers /></button>
                 <button onClick={() => setPayOpen(t)} className="hover:text-primary-600" title="Receive Payment"><FiDollarSign /></button>
                 <button onClick={() => openEdit(t)} className="hover:text-primary-600" title="Edit"><FiEdit2 /></button>
                 <button onClick={() => setDeleteId(t.id)} className="hover:text-red-600" title="Delete"><FiTrash2 /></button>
@@ -110,6 +113,10 @@ export default function ModelTests() {
 
       {payOpen && (
         <ModelTestPaymentModal test={payOpen} onClose={() => setPayOpen(null)} />
+      )}
+
+      {studentsOpen && (
+        <ModelTestStudentsModal test={studentsOpen} onClose={() => setStudentsOpen(null)} />
       )}
 
       <ConfirmDialog
@@ -189,6 +196,97 @@ function ModelTestPaymentModal({ test, onClose }) {
         <button className="btn-primary w-full" disabled={submitting} onClick={submit}>
           {submitting ? 'Processing...' : 'Receive Payment'}
         </button>
+      </div>
+    </Modal>
+  );
+}
+
+// Shows every student for this teacher, filterable by class / HSC year /
+// paid-or-due status for this specific model test, with each student's
+// payment info (amount, date, receipt) when they've paid.
+function ModelTestStudentsModal({ test, onClose }) {
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState({ total: 0, paid: 0, due: 0 });
+  const [loading, setLoading] = useState(true);
+  const [className, setClassName] = useState('');
+  const [hscYear, setHscYear] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      api.get(`/model-tests/${test.id}/students`, { params: { class: className, hscYear, paymentStatus } })
+        .then((res) => {
+          setRows(res.data.data.students);
+          setSummary(res.data.data.summary);
+        })
+        .catch(() => toast.error('Failed to load students'))
+        .finally(() => setLoading(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [test.id, className, hscYear, paymentStatus]);
+
+  return (
+    <Modal open onClose={onClose} title={`Students - ${test.title}`} maxWidth="max-w-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <input
+          className="input-field"
+          placeholder="Class (e.g. HSC 2nd Year)"
+          value={className}
+          onChange={(e) => setClassName(e.target.value)}
+        />
+        <input
+          className="input-field"
+          placeholder="HSC Year (e.g. 2026)"
+          value={hscYear}
+          onChange={(e) => setHscYear(e.target.value)}
+        />
+        <select className="input-field" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
+          <option value="">All (Paid & Due)</option>
+          <option value="paid">Paid only</option>
+          <option value="due">Due only</option>
+        </select>
+      </div>
+
+      <div className="flex gap-4 text-sm text-gray-500 mb-3">
+        <span>Total: <span className="font-semibold text-gray-700">{summary.total}</span></span>
+        <span>Paid: <span className="font-semibold text-green-700">{summary.paid}</span></span>
+        <span>Due: <span className="font-semibold text-red-700">{summary.due}</span></span>
+      </div>
+
+      <div className="overflow-x-auto max-h-96 overflow-y-auto border border-gray-100 rounded-lg">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th>Roll</th>
+              <th>Name</th>
+              <th>Class</th>
+              <th>HSC Year</th>
+              <th>Status</th>
+              <th>Amount</th>
+              <th>Paid On</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="text-center py-6 text-gray-400">Loading...</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-6 text-gray-400">No students match these filters.</td></tr>
+            ) : (
+              rows.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.rollNo}</td>
+                  <td>{s.name}</td>
+                  <td>{s.class || '-'}</td>
+                  <td>{s.hscYear}</td>
+                  <td><StatusBadge status={s.paid ? 'paid' : 'due'} /></td>
+                  <td>{s.paid ? `৳${s.paidAmount}` : '-'}</td>
+                  <td>{s.paid && s.paymentDate ? new Date(s.paymentDate).toLocaleDateString() : '-'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </Modal>
   );

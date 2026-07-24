@@ -63,6 +63,72 @@ exports.deleteModelTest = async (req, res, next) => {
   }
 };
 
+// GET /api/model-tests/:id/students?class=&hscYear=&paymentStatus=paid|due
+// Returns every student (scoped to the teacher, optionally filtered by
+// class/HSC year) alongside whether they've paid for this specific model
+// test, so a teacher can see paid/due status test-by-test.
+exports.getModelTestStudents = async (req, res, next) => {
+  try {
+    const test = await ModelTest.findOne({ where: teacherWhere(req, { id: req.params.id }) });
+    if (!test) return res.status(404).json({ success: false, message: 'Model test not found' });
+
+    const { class: className, hscYear, paymentStatus } = req.query;
+
+    const where = teacherWhere(req);
+    if (className) where.class = className;
+    if (hscYear) where.hscYear = hscYear;
+
+    const students = await Student.findAll({
+      where,
+      attributes: ['id', 'name', 'rollNo', 'class', 'group', 'hscYear', 'phone', 'status'],
+      order: [['name', 'ASC']],
+    });
+
+    const payments = students.length
+      ? await ModelTestPayment.findAll({
+        where: { testId: test.id, studentId: students.map((s) => s.id) },
+      })
+      : [];
+    const paymentByStudent = new Map(payments.map((p) => [p.studentId, p]));
+
+    let data = students.map((s) => {
+      const payment = paymentByStudent.get(s.id);
+      return {
+        id: s.id,
+        name: s.name,
+        rollNo: s.rollNo,
+        class: s.class,
+        group: s.group,
+        hscYear: s.hscYear,
+        phone: s.phone,
+        studentStatus: s.status,
+        paid: !!payment,
+        paidAmount: payment ? payment.paidAmount : null,
+        paymentDate: payment ? payment.paymentDate : null,
+        receiptNo: payment ? payment.receiptNo : null,
+      };
+    });
+
+    if (paymentStatus === 'paid') data = data.filter((s) => s.paid);
+    if (paymentStatus === 'due') data = data.filter((s) => !s.paid);
+
+    res.json({
+      success: true,
+      data: {
+        test,
+        students: data,
+        summary: {
+          total: data.length,
+          paid: data.filter((s) => s.paid).length,
+          due: data.filter((s) => !s.paid).length,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // POST /api/model-tests/:id/pay  { studentId, amount, paymentDate }
 exports.payModelTest = async (req, res, next) => {
   const t = await sequelize.transaction();
